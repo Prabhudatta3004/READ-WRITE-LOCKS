@@ -1,5 +1,3 @@
-/* create.c - create, newpid */
-
 #include <conf.h>
 #include <i386.h>
 #include <kernel.h>
@@ -12,34 +10,28 @@
 
 LOCAL int newpid();
 
-/*------------------------------------------------------------------------
- *  create  -  create a process to start running a procedure
- *------------------------------------------------------------------------
- */
 SYSCALL create(procaddr, ssize, priority, name, nargs, args)
-int *procaddr; /* procedure address		*/
-int ssize;	   /* stack size in words		*/
-int priority;  /* process priority > 0		*/
-char *name;	   /* name (for debugging)		*/
-int nargs;	   /* number of args that follow	*/
-long args;	   /* arguments (treated like an	*/
-			   /* array in the code)		*/
+int *procaddr; /* procedure address */
+int ssize;	   /* stack size in words */
+int priority;  /* process priority > 0 */
+char *name;	   /* name (for debugging) */
+int nargs;	   /* number of args that follow */
+long args;	   /* arguments (treated like an array in the code) */
 {
 	unsigned long savsp, *pushsp;
 	STATWORD ps;
-	int pid;			 /* stores new process id	*/
+	int pid;			 /* stores new process id */
 	struct pentry *pptr; /* pointer to proc. table entry */
 	int i;
-	unsigned long *a;	  /* points to list of args	*/
-	unsigned long *saddr; /* stack address		*/
+	unsigned long *a;	  /* points to list of args */
+	unsigned long *saddr; /* stack address */
 	int INITRET();
 
 	disable(ps);
 	if (ssize < MINSTK)
 		ssize = MINSTK;
 	ssize = (int)roundew(ssize);
-	if (((saddr = (unsigned long *)getstk(ssize)) ==
-		 (unsigned long *)SYSERR) ||
+	if (((saddr = (unsigned long *)getstk(ssize)) == (unsigned long *)SYSERR) ||
 		(pid = newpid()) == SYSERR || priority < 1)
 	{
 		restore(ps);
@@ -60,6 +52,7 @@ long args;	   /* arguments (treated like an	*/
 	for (i = 0; i < PNMLEN && (int)(pptr->pname[i] = name[i]) != 0; i++)
 		;
 	pptr->pprio = priority;
+	pptr->base_prio = priority; // Store original priority (replaces ogprio)
 	pptr->pbase = (long)saddr;
 	pptr->pstklen = ssize;
 	pptr->psem = 0;
@@ -69,16 +62,14 @@ long args;	   /* arguments (treated like an	*/
 	pptr->pnxtkin = BADPID;
 	pptr->pdevs[0] = pptr->pdevs[1] = pptr->ppagedev = BADDEV;
 
-	// **Initialize new lock-related fields**
-	pptr->pinh = 0;	   // No inherited priority at creation
-	pptr->lockid = -1; // Not waiting on any lock (-1 is invalid)
+	// Initialize lock-related fields (removed unused fields)
+	pptr->lockid = -1;
 	for (i = 0; i < NLOCKS; i++)
 	{
-		pptr->lock_held[i] = 0; // No locks held (0 = not held, 1 = held)
+		pptr->lock_held[i] = 0;
 	}
-	pptr->plocktype = -1; // No lock type assigned (not waiting)
-	pptr->pwaittime = 0;  // No wait time yet (until lock wait starts)
-	pptr->lock_lid = -1;
+	pptr->plocktype = -1;
+	pptr->pwaittime = 0;
 
 	/* Bottom of stack */
 	*saddr = MAGIC;
@@ -86,13 +77,13 @@ long args;	   /* arguments (treated like an	*/
 
 	/* push arguments */
 	pptr->pargs = nargs;
-	a = (unsigned long *)(&args) + (nargs - 1); /* last argument	*/
-	for (; nargs > 0; nargs--)					/* machine dependent; copy args	*/
-		*--saddr = *a--;						/* onto created process' stack	*/
-	*--saddr = (long)INITRET;					/* push on return address	*/
+	a = (unsigned long *)(&args) + (nargs - 1); /* last argument */
+	for (; nargs > 0; nargs--)					/* machine dependent; copy args */
+		*--saddr = *a--;						/* onto created process' stack */
+	*--saddr = (long)INITRET;					/* push on return address */
 
-	*--saddr = pptr->paddr = (long)procaddr; /* where we "ret" to	*/
-	*--saddr = savsp;						 /* fake frame ptr for procaddr	*/
+	*--saddr = pptr->paddr = (long)procaddr; /* where we "ret" to */
+	*--saddr = savsp;						 /* fake frame ptr for procaddr */
 	savsp = (unsigned long)saddr;
 
 	/* this must match what ctxsw expects: flags, regs, old SP */
@@ -113,17 +104,13 @@ long args;	   /* arguments (treated like an	*/
 	return (pid);
 }
 
-/*------------------------------------------------------------------------
- * newpid  --  obtain a new (free) process id
- *------------------------------------------------------------------------
- */
 LOCAL int newpid()
 {
-	int pid; /* process id to return		*/
+	int pid;
 	int i;
 
 	for (i = 0; i < NPROC; i++)
-	{ /* check all NPROC slots	*/
+	{
 		if ((pid = nextproc--) <= 0)
 			nextproc = NPROC - 1;
 		if (proctab[pid].pstate == PRFREE)

@@ -28,6 +28,7 @@ struct lentry
     int lproc_array[NPROC];    // list of processes holding this lock
     unsigned long wait_return; // returning value for the waiting processes - OK or delete
     unsigned long ltime;       // Time when the lock was created for debugging
+    int lmax_prio;
 };
 
 extern struct lentry lock_tab[NLOCKS];
@@ -37,5 +38,6 @@ extern int lcreate(void);
 extern int ldelete(int lock_descriptor);
 extern int lock(int ldes1, int type, int priority);
 extern int releaseall(int numlocks, int ldes1, ...);
+extern void update_prio_inheritance(int ldes1, int requester_prio);
 
 #endif

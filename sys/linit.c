@@ -27,9 +27,10 @@ int linit(void)
         ptr->wait_return = OK;  // giving the return value as OK
         ptr->ltime = 0;
         ptr->lid = -1;
+        ptr->lmax_prio = 9999;
         for (j = 0; j < NPROC; j++)
         {
-            ptr->lproc_array[j] = 0;
+            ptr->lproc_array[j] = NONE;
         }
     }
     return OK;

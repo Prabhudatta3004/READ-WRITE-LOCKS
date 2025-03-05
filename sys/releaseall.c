@@ -7,6 +7,8 @@
 
 extern int ctr1000;
 
+extern void adjust_lock_holders_priority(int lock_desc);
+
 int releaseall(int numlocks, int ldes1, ...)
 {
     STATWORD ps;
@@ -39,7 +41,6 @@ int releaseall(int numlocks, int ldes1, ...)
 
         struct lentry *lptr = &lock_tab[ldes];
 
-        // CRITICAL FIX: Check the current lock type for this process
         int curr_type = lptr->lproc_array[pid];
 
         if (curr_type == READ)
@@ -51,11 +52,9 @@ int releaseall(int numlocks, int ldes1, ...)
             lptr->writers_count--;
         }
 
-        // Clear the lock status for this process
         lptr->lproc_array[pid] = NONE;
         pptr->lock_held[ldes] = 0;
 
-        // CRITICAL FIX: Count actual writers to fix phantom writer issue
         int real_writers = 0;
         int j;
         for (j = 0; j < NPROC; j++)
@@ -66,18 +65,15 @@ int releaseall(int numlocks, int ldes1, ...)
             }
         }
 
-        // If writers_count doesn't match real count, fix it
         if (lptr->writers_count != real_writers)
         {
             lptr->writers_count = real_writers;
         }
 
-        // Check if lock is now completely free
         if (lptr->readers_count == 0 && lptr->writers_count == 0)
         {
             if (nonempty(lptr->lqhead))
             {
-                // Find highest priority
                 int highest_prio = -1;
                 int qp = q[lptr->lqhead].qnext;
                 while (qp < NPROC)
@@ -87,7 +83,6 @@ int releaseall(int numlocks, int ldes1, ...)
                     qp = q[qp].qnext;
                 }
 
-                // Find highest priority writer
                 int highest_writer_prio = -1;
                 qp = q[lptr->lqhead].qnext;
                 while (qp < NPROC)
@@ -97,7 +92,6 @@ int releaseall(int numlocks, int ldes1, ...)
                     qp = q[qp].qnext;
                 }
 
-                // Find process with longest wait at highest priority
                 int next_pid = -1;
                 unsigned long longest_wait = 0;
 
@@ -116,7 +110,6 @@ int releaseall(int numlocks, int ldes1, ...)
                     qp = q[qp].qnext;
                 }
 
-                // Check for writer preference with grace period
                 if (next_pid != -1 && proctab[next_pid].plocktype == READ)
                 {
                     qp = q[lptr->lqhead].qnext;
@@ -151,7 +144,6 @@ int releaseall(int numlocks, int ldes1, ...)
                         lptr->lproc_array[next_pid] = READ;
                         nextproc->lock_held[ldes] = 1;
 
-                        // Now admit all other eligible readers
                         int readers[NPROC];
                         int reader_count = 0;
 
@@ -180,15 +172,50 @@ int releaseall(int numlocks, int ldes1, ...)
                             rproc->lock_held[ldes] = 1;
                         }
                     }
-                    else // WRITE
-                    {
-                        lptr->writers_count = 1; // CRITICAL FIX: Set to 1, not increment
+                    else
+                    { // WRITE
+                        lptr->writers_count = 1;
                         lptr->lproc_array[next_pid] = WRITE;
                         nextproc->lock_held[ldes] = 1;
                     }
                 }
             }
         }
+    }
+
+    // Update releasing process's priority
+    int max_wait_prio = -1;
+    for (i = 0; i < NLOCKS; i++)
+    {
+        if (pptr->lock_held[i] == 1 && lock_tab[i].lstate != LFREE)
+        {
+            struct lentry *lptr = &lock_tab[i];
+            int qp = q[lptr->lqhead].qnext;
+            while (qp < NPROC)
+            {
+                int wprio = proctab[qp].pprio;
+                if (wprio > max_wait_prio)
+                {
+                    max_wait_prio = wprio;
+                }
+                qp = q[qp].qnext;
+            }
+        }
+    }
+    if (max_wait_prio > pptr->pprio)
+    {
+        pptr->pprio = max_wait_prio;
+    }
+    else if (max_wait_prio == -1)
+    {
+        pptr->pprio = pptr->base_prio; // Reset to original if no waiters
+    }
+
+    // Update priority for each released lock
+    for (i = 0; i < numlocks; i++)
+    {
+        int ldes = *(argptr - numlocks + i);
+        adjust_lock_holders_priority(ldes);
     }
 
     resched();

@@ -160,7 +160,7 @@ LOCAL int sysinit()
 
 	for (i = 0; i < NPROC; i++) /* initialize process table */
 		proctab[i].pstate = PRFREE;
-	pptr->pinh = 0;	   // No inherited priority
+	// pptr->pinh = 0;	   // No inherited priority
 	pptr->lockid = -1; // Not waiting on any lock
 	for (j = 0; j < NLOCKS; j++)
 	{
@@ -168,7 +168,7 @@ LOCAL int sysinit()
 	}
 	pptr->plocktype = -1; // No lock type assigned
 	pptr->pwaittime = 0;  // No wait time yet
-	pptr->lock_lid = -1;
+	// pptr->lock_lid = -1;
 
 	pptr = &proctab[NULLPROC]; /* initialize null process entry */
 	pptr->pstate = PRCURR;
