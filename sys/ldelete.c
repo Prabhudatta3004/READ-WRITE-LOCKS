@@ -5,6 +5,8 @@
 #include <lock.h>
 #include <stdio.h>
 
+extern void adjust_lock_holders_priority(int lock_desc);
+
 int ldelete(int lock_descriptor)
 {
     STATWORD ps;
@@ -68,6 +70,9 @@ int ldelete(int lock_descriptor)
     /*Step: 07 has to reset the lock fields*/
     lock_ptr->lprio = 0;
     lock_ptr->ltype = NONE;
+
+    /* Step 8: Adjust priorities of any affected processes */
+    adjust_lock_holders_priority(lock_descriptor);
 
     resched();
 
