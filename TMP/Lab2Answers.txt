@@ -1,0 +1,76 @@
+﻿LAB 2 ADDITIONAL QUESTIONS:
+Prabhudatta Mishra
+pmishra4@ncsu.edu
+
+
+
+
+QUESTION:01
+The priority inversion problem could cause that a higher-priority process needs to wait for the completion of a lower-priority process.
+1.Priority inheritance is one approach to address this issue. Please give another approach and briefly describe its idea.
+Ans. I found a different method called priority ceiling protocol instead of priority inheritance. In which, we can set a ceiling priority for each lock, which is the highest priority of any process that might use it. When a process grabs a lock, the priority jumps to the ceiling. By this way, priority inversion can be avoided because the low priority process gets bumped up and the medium priority cannot preempt it and letting the higher priority process get the lock faster. It is set up before not when the processes are waiting which makes it predictable unlike our implementation of priority inheritance.
+
+
+2. Design a test case to show that your approach can address the priority inversion problem. You should compare the results that derived from the original XINU implementation (use semaphore) and that derived from your implementation (use readers/writer locks). Put your results in Lab2Answers.txt and your test case program (name it task1.c) in both ./sys and ./TMP
+Ans.
+
+
+OUTPUT:
+
+
+ === Priority Inversion Comparison ===
+
+
+
+
+
+
+
+
+=== Semaphore Priority Test ===
+Producer goes first with prio 15
+Producer Sprod: wants a semaphore
+Producer Sprod: has a semaphore
+Consumer1 goes next with prio 25
+Consumer Scon1: is trying for a semaphore
+Producer priority should still be 15 and the prio is 15
+Consumer2 goes next with prio 35
+Consumer Scon2: is trying for a semaphore
+Producer priority should still be 15 and the prio is 15
+Stopping consumer2 with prio 35
+Producer priority should still be 15 and the prio is 15
+Stopping consumer1 with prio 25
+Producer priority should still be 15 and the prio is 15
+Producer Sprod: returned a semaphore
+Semaphore Test Finished
+
+
+=== Lock Priority Inheritance Test ===
+Producer starts first with priority 15
+Producer Lprod: want a lock
+Producer Lprod: got the lock working 20s
+Consumer1 starts next with prio 25
+Consumer Lcon1: want a lock
+Producer prio after consumer1: 25
+Starting the second consumer with prio 35
+Consumer Lcon2: want a lock
+Producer prio after 2nd consumer: 35
+Stop Lcon2, pause 3s
+Producer prio after killing Lcon2: 25
+Stop Lcon1, pause 3s
+Producer prio after killing Lcon1: 15
+Producer Lprod: Letting go of lock
+Lock Test Finished
+
+
+In my task1.c I have made 3 processes : 1 producer with prio 15, consumer1 with prio 25, consumer2 with prio 35. Producer holds the semaphore with 12secs or my lock for 20 secs and then consumer1 and 2 try to get it while waiting.
+Semaphore Test: Producer starts at around 3 seconds with priority 15 and has the semaphore until about 12 seconds. Consumer1 tries to grab it at 6 seconds with priority 25 and C2 tries at 9 secs with prio 35 but get stuck till producer releases it at 15 seconds. I checked Producer’s priority after consumer1 starts, and it is still 15. After Consumer 2 starts it is still 15. I killed Consumer2 at 12 seconds and Consumer 1 at 13 seconds and Producers priority still is 15. This proves that the XINU semaphores does not do priority inheritance.
+
+
+Lock Test: For my lock test, Producer starts at 3 seconds with priority 15 and grabs the lock, holding it for 20 seconds until about 23 seconds. Then consumer 1 tries at 6 seconds with prio 25, and producers prio goes up to 25 and then the inheritance is visible. Then consumer 2 tries at 9 second with prio 35, and producers prio goes to 35. I killed the consumer2 at 12 seconds and producers prio went to 25 and after killing consumer 1 at 15 seconds the producer’s prio goes back to 15. This shows that my read/write lock works with priority inheritance.
+
+
+QUESTION:02
+Synchronization is a quite complex issue in operating systems. To show your understanding about process synchronization, you are asked to point out a potential problem in this pseudo-code: task2_sync_issue.c. Multiple reader processes can execute this code concurrently by calling reader(). You are asked to describe an issue it may cause and why it can happen. Put your answer in Lab2Answers.txt mentioned above.
+Ans.
+The given code is the classical readers and writers approach with some preference to the readers that can lead to writer’s starvation. For example, if a writer W waits while a reader R1 holds the lock, new readers can easily join continuously without waiting on the resource since they can simply incrementing the readers_count. As long as at least one reader is active, the resource remains locked for the writer and stays within the reader’s group and hence the writer cannot proceed. This can block the writer and the writer may enter into starvation mode.
